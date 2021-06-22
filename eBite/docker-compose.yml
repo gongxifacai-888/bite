@@ -1,0 +1,57 @@
+version: '3.7'
+services:
+  mysql:
+    image: mysql
+    container_name: mysql8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+    ports:
+      - published: 3306
+        target: 3306
+    volumes:
+      - source: ./docker/etc/mysql/conf.d
+        target: /etc/mysql/conf.d
+        type: bind
+    networks:
+      - intranet
+  nginx:
+    image: nginx
+    container_name: nginx1.17
+    depends_on:
+      - php-fpm
+    ports:
+      - published: 80
+        target: 80
+    volumes:
+      - source: ./
+        target: /var/www
+        type: bind
+      - source: ./docker/etc/nginx/nginx.conf
+        target: /etc/nginx/nginx.conf
+        type: bind
+      - source: ./docker/etc/nginx/conf.d
+        target: /etc/nginx/conf.d
+        type: bind
+    networks:
+      - intranet
+  php-fpm:
+    image: 19340091/php:7.4-fpm
+    container_name: php7.4-fpm
+    ports:
+      - published: 9000
+        target: 9000
+    volumes:
+      - source: ./
+        target: /var/www
+        type: bind
+      - source: ./docker/etc/php/php-fpm.d
+        target: /usr/local/etc/php-fpm.d
+        type: bind
+    networks:
+      - intranet
+networks:
+  intranet:
+    driver: bridge
+    name: intranet
+    external: true
+      
