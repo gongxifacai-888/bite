@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title> </title>
+		<link rel="stylesheet" href="css/common.css">
+		<link rel="stylesheet" href="css/dataMap.css">
+		<!-- <link href="css/mui.min.css" rel="stylesheet"/>
+	    <script src="js/mui.min.js"></script> -->
+	</head>
+	<style>
+		[v-cloak]{
+			display: none !important;
+		}
+		.list-item p{
+			width: 100% !important;
+		}
+</style>
+	<body>
+		<!-- <div class="h20 bgHeader"></div> -->
+		<div id="app" v-cloak class="bgBalck">
+			<div class="header plr15 flex alcenter bgHeader white fixed pt30">
+				<img src="../../static/image/return.png" class="h15 wt15 mr10" @click="goback" />
+				<div class="flex alcenter" @click="showLeft">
+					<img src="../../static/image/lists.png" style="width: 20px;">
+					<span class="white ft18 bold pl10">{{symbol}}</span>
+				</div>
+			</div>
+			<div>
+				<div class="pt60 pb10 plr20  bgHeader" style="min-height: 50px;">
+					<div class="flex alcenter between pt5">
+						<div class="tc" :class="[updown.substring(0,1) == '-'?'red':'green']">
+							<p class="bold ft24">{{newprice || '0.00'}}</p>
+							<p class="mt10">{{updown ||'0.00'}}%</p>
+						</div>
+						<div class="w50">
+							<div class="flex between mb5">
+								<span class="blue">{{translatedInfo.high || '--'}}</span>
+								<span class="blue white">{{maxprice || '0.00'}}</span>
+							</div>
+							<div class="flex between mb5">
+								<span class="blue">{{translatedInfo.low || '--'}}</span>
+								<span class="blue white">{{minprice ||'0.00'}}</span>
+							</div>
+							<div class="flex between">
+								<span class="blue">{{translatedInfo.volume || '--'}}</span>
+								<span class="blue white">{{dayvom ||'0.00'}}</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div id="tv_chart_container" style="width:100%;height:60vh;margin-top: 5px;"></div>
+		        <!--订单列表 -->
+				<div class="order-list">
+					<div class="flex order-list-header between">
+						<p class="tc" :class="[{'active':status == 1}]" @click="selectOrder(1)" data-localize="contract.positionList">{{texts[lang].list}}</p>
+						<p class="tc" :class="[{'active':status == 3}]" @click="selectOrder(3)" data-localize="td.drecord">{{texts[lang].record}}</p>
+					</div>
+					<ul class="lists" v-show="isConnect || status==3">
+<!-- 						<li class="flex between ft10">
+							<p v-show="status == 3">时间</p>
+							<p data-localize="assets.num">数量</p>
+							<p data-localize="contract.purchasePrice">购买价</p>
+							<p v-show="status == 1" data-localize="deals.nowprice">当前价</p>
+							<p v-show="status == 3" data-localize="contract.transactionPrice">成交价</p>
+							<p v-show="status == 1" data-localize="contract.estimated">预计盈亏</p>
+							<p v-show="status == 1" data-localize="contract.countDown">倒计时</p>
+							<p v-show="status == 3" data-localize="deals.fee">手续费</p>
+							<p v-show="status == 3" data-localize="contract.profitAndLoss">盈亏</p>
+						</li> -->
+						<li
+							v-if="orderList.length > 0 && item.remain_milli_seconds >0 && status==1 || status ==3 && orderList.length >0"
+							v-for="(item,index) in orderList" :key="item.id" class="ft10 list-item">
+							<!-- <p v-if="status==1">{{item.created_at}}</p> -->
+							<!-- <p v-if="status==3">{{item.handled_at.substring(10,16)}} {{item.handled_at.substring(5,7)}}/{{item.handled_at.substring(8,11)}}</p> -->
+							<div class="flex">
+								<!-- 数量 -->
+								<div class="flex1 tc">
+									<span class="gray">{{texts[lang].num}}</span>
+									<p class="mt5 w100">{{item.number || '0' | toFixedNum}}{{item.currency_name}}</p>
+								</div>
+								<!-- 购买价 -->
+								<div class="flex1 tc">
+									<span class="gray">{{texts[lang].buyprice}}</span>
+									<p class="mt5 flex alcenter jscenter w100">
+									  <span>{{item.open_price || '0.00' | toFixed4}} </span>  
+									  <img v-if="item.type == 1 && status == 1" width="10" src="./image/buy.png" alt="">
+									  <img v-if="item.type != 1 && status == 1" width="10" src="./image/sell.png" alt="">
+									</p>
+								</div>	
+								<!-- 当前价 -->
+								<div class="flex1 tc" v-if="status == 1&&item.status == 1">
+									<span class="gray">{{texts[lang].nowprice}}</span>
+									<p class="mt5">{{newprice || '0.00' | toFixed4}}</p>
+								</div>
+								<!-- 成交价 -->
+								<div class="flex1 tc" v-if="status == 3">
+									<span class="gray">{{texts[lang].okprice}}</span>
+									<p class="mt5" v-if="status == 1&&item.status == 3">{{item.end_price || '0.00' | toFixed4}}</p>
+									<p class="mt5" v-if="status == 3&&item.remain_milli_seconds>0">--</p>
+									<p class="mt5" v-if="status == 3&&item.remain_milli_seconds<=0">{{item.end_price || '0.00' | toFixed4}}</p>
+								</div>
+							</div>
+							<div class="flex mt5">
+								<!-- 预计盈亏 -->
+								<div class="flex1 tc" v-if="status == 1">
+									<span class="gray">{{texts[lang].estimate}}</span>
+									<p class="mt5" v-if="status == 1&&item.status == 1 && (item.open_price -0) == (newprice -0)" class="green">0</p>
+									<p class="mt5" v-if="status == 1&&item.status == 1 && item.type == 1 && (item.open_price -0) > (newprice -0)" class="red">
+										-{{item.number || '0' | toFixedNum}}</p>
+									<p class="mt5" v-if="status == 1&&item.status == 1 && item.type == 1 && (item.open_price -0) < (newprice -0)" class="green">
+										{{(item.number * item.profit_ratio -0) || '0.00' | toFixedNum}}</p>
+									<p class="mt5" v-if="status == 1&&item.status == 1 && item.type == 2 && (item.open_price -0) > (newprice -0)" class="green">
+										{{(item.number * item.profit_ratio -0) || '0.00' | toFixedNum}}</p>
+									<p class="mt5" v-if="status == 1&&item.status == 1 && item.type == 2 && (item.open_price -0) < (newprice -0)" class="red">
+										-{{(item.number -0) || '0.00' | toFixedNum}}</p>
+									<p class="mt5" v-if="status == 1&&item.status == 3" :class="item.fact_profits >= 0?'green':'red'">{{item.fact_profits || '0' | toFixedNum}}</p>
+								</div>
+								<!-- 倒计时 -->
+								<div class="flex1 tc" v-if="status == 1">
+									<span class="gray">{{texts[lang].count}}</span>
+									<p v-if="status == 1&&item.status == 1" class="times mt5">
+										<!-- {{countDown(item.endTime,index,item.seconds,item.remain_milli_seconds,item.id)}}s -->
+										{{item.remain_milli_seconds}}s
+									</p>
+									<p v-if="status == 1&&item.status == 3" class="times mt5">0.0s</p>
+								</div>	
+								<!-- 类型 -->
+								<div class="flex1 tc" v-if="status == 3">
+									<span class="gray">{{texts[lang].type}}</span>
+									<p class="mt5 flex alcenter jscenter">
+									  <span :class="['green',{'red':item.type!=1}]" v-if='item.type==1'>{{texts[lang].buy}}</span>
+									  <span :class="['green',{'red':item.type!=1}]" v-else >{{texts[lang].sell}}</span>
+									  <img v-if="item.type == 1" width="10" src="./image/buy.png" alt="">
+									  <img v-else width="10" src="./image/sell.png" alt="">
+									</p>
+								</div>	
+								<!-- 盈亏 -->
+								<div class="flex1 tc" v-if="status == 3">
+									<span class="gray">{{texts[lang].profit}}</span>
+									<p v-if="status == 3&&item.remain_milli_seconds<=0" :class="item.fact_profits >= 0?'green mt5':'red mt5'">
+										{{item.fact_profits || '0' | toFixedNum}}</p>
+								</div>	
+								<!-- 时间 -->
+								<div class="flex1 tc">
+									<span class="gray">{{texts[lang].time}}</span>
+									<p v-if="status == 1" class="mt5">{{item.created_at.substring(11)}}</p>
+									<p v-if="status == 3" class="mt5">{{item.handled_at.substring(11)}} {{item.handled_at.substring(5,7)}}/{{item.handled_at.substring(8,10)}}</p>
+								</div>	
+							</div>
+						</li>
+					</ul>
+					<div v-if="orderList.length == 0" class="tc mt10" data-localize="transaction.nodata">{{texts[lang].norecord}}</div>
+					<div v-if="orderList.length>0 && hasmore" class="tc mt10" @click="getmore">{{texts[lang].more}}</div>
+					<div v-if="orderList.length>0 && !hasmore" class="tc mt10">{{texts[lang].nomore}}</div>
+				</div>
+				<div style="height:160px;"></div>
+				<!-- 底部 -->
+				<div id="bottom" class="flex between">
+					<div class="flex bottom-left between" @click="slectedTime()">
+						<div class="tc">
+							<p data-localize="assets.num">{{texts[lang].num}}</p>
+							<p class="ftColor">{{inputValue || '0.00' | toFixedNum}}</p>
+						</div>
+						<div class="tc">
+							<p data-localize="assets.time">{{texts[lang].time}}</p>
+							<p class="ftColor">{{seconds || '00'}}s</p>
+						</div>
+						<div class="tc">
+							<p data-localize="contract.profitRate">{{texts[lang].rate}}</p>
+							<p class="ftColor">{{profitRatio || '00' | toFixedNum}}%</p>
+						</div>
+						<div class="logo-down">
+							<img src="../../static/image/downs.png" alt="">
+						</div>
+					</div>
+					<div class="flex">
+						<button class="second-buy" @click="buyModal(1)" data-localize="contract.buyUp">{{texts[lang].up}}</button>
+						<button class="second-sell" @click="buyModal(2)" data-localize="contract.buyAll">{{texts[lang].down}}</button>
+					</div>
+				</div>
+				<!-- <div class="flex between plr20 alcenter plr20 bgHeader fixed w100 pos_l0b0" style="height: 80px;">
+					<button class="goTranbuy bgRed flex1 ptb10 mr20 white radius4" @click="goTrade('buy')">{{translatedInfo.buy || '--'}}</button>
+					<button class="goTransell bgGreen flex1 ptb10 white radius4" @click="goTrade('sell')">{{translatedInfo.sell || '--'}}</button>
+				</div> -->
+			</div>
+			<div id="sideColumn" class="bgBlackColor">
+				<div class="ft20 bold bdbs pl20 texts-lever" data-localize="contract.secondContract">{{texts[lang].mairo}}</div>
+<!-- 				<ol class="tabs hide">
+					<li class="currency_name side side2" data-id="3">USDT</li>
+				</ol> -->
+				<ul class="ul">
+					<li v-for="item in currencyList" :key="item.id" v-if="item.open_microtrade==1"
+						:class="['legal_name flex between',{'bg_active':currency_id==item.base_currency_code}]"
+						@click="selectCurrencys(item.id,item.quote_currency_id,item.base_currency_id,item.quote_currency_code,item.base_currency_code)">
+						<strong><span>{{item.base_currency_code}}/{{item.quote_currency_code}}</span></strong>
+						<p :class="['fontC',{'gre':item.currency_quotation.close>=0}]" v-if="item.currency_quotation">
+							<span>{{item.currency_quotation.close}}</span>
+						</p>
+					</li>
+				</ul>
+			</div>
+			<!-- 倒计时下单弹窗 -->
+			<div class="time-modal">
+				<div class="time-header">
+					<div>
+						<p class="colorGrey ft12" data-localize="contract.transactionMode">{{texts[lang].pattern}}</p>
+						<div class="flex warps currency-list mt10">
+							<p :class="[{'active':tradeCurrencyId == item.id}]" v-for="item in tradeCurrency" :key="item.id"
+								@click="tradeCurrencyClick(item.id,item.code)">
+								{{item.code}}
+							</p>
+						</div>
+					</div>
+				</div>
+				<div class="time-content mt10">
+					<p class="colorGrey ft12" data-localize="contract.openQuantity">{{texts[lang].opennum}}</p>
+					<div class="time-num between">
+						<ul class="flex warps1">
+							<li v-for="item in tradeNUm" :key="item.id" @click="tabNumbers(item.number)">
+								<p :class="[{'active':(inputValue-0) == (item.number -0).toFixed(0)}]">{{item.number |toFixedNum}}</p>
+							</li>
+						</ul>
+						<!-- <input type="number" data-localize="contract.otherQuantities" placeholder="其他数量" v-model="inputValue"> -->
+					</div>
+					<div class="time-list">
+						<p class="colorGrey ft12" data-localize="deals.optime">{{texts[lang].opentime}}</p>
+						<div class="flex warps1 currency-list mt10">
+							<p :class="[{'active':seconds == item.seconds}]" v-for="item in timeList" :key="item.id"
+								@click="selectTime(item.seconds,item.profit_ratio)">{{item.seconds}}s</p>
+						</div>
+					</div>
+					<div class="flex between ft14">
+						<p><span data-localize="contract.accountBalance">{{texts[lang].balance}}</span>: <span class="green bold">{{balance}} {{tradeCurrencyName}}</span></p>
+						<p><span data-localize="contract.profitRate">{{texts[lang].rate}}</span>: <span class="green bold ft20">{{profitRatio | toFixedNum}}%</span></p>
+					</div>
+				</div>
+			</div>
+			<!-- 下单之后的弹窗 -->
+			<div class="orders">
+				<div>
+					<div class="mt20 orders-list ft16 bold" style="text-align: left;">
+						<div class="flex alcenter between mt10">
+							<div class="flex">
+								<p data-localize="assets.num" style="text-align: left;">{{texts[lang].num}}：</p>
+								<p>{{inputValue || '0' |toFixedNum}} {{tradeCurrencyName}}</p>
+							</div>
+							<div class="flex">
+								<p data-localize="contract.profitRate" style="text-align: left;">{{texts[lang].expect}}：</p>
+								<p>{{profitRatio}}%</p>
+							</div>
+						</div>
+						<div class="flex alcenter between mt10">
+							<div class="mt10 flex">
+								<p data-localize="assets.time" style="text-align: left;">{{texts[lang].cycle}}：</p>
+								<p>{{seconds}} S</p>
+							</div>
+							<div class="mt10 flex">
+								<p data-localize="assets.time" style="text-align: left;">{{texts[lang].nowprice}}：</p>
+								<p>{{newprice}}</p>
+							</div>
+						</div>
+						
+						
+					</div>
+				</div>
+			</div>
+			<div id="mask1" @click="closeLeft"></div>
+		</div>
+		<script type="text/javascript" src="https://js.cdn.aliyun.dcloud.net.cn/dev/uni-app/uni.webview.1.5.2.js"></script>
+		<script src="lib/vue.min.js"></script>
+		<script src="lib/jquery.js"></script>
+		<script src="lib/layer_mobile/layer.js"></script>
+		<script src="javascripts/main.js"></script>
+		<script src="javascripts/socket.io.js"></script>
+		<script src="tradeview/charting_library/charting_library.min.js"></script>
+		<script>
+			document.addEventListener('UniAppJSBridgeReady', function() {
+				// document.querySelector('.btn-list').addEventListener('click', function(evt) {
+				// 	uni.navigateBack({
+				// 		delta: 1
+				// 	});
+				// });
+				var vm = new Vue({
+					el: '#app',
+					data: {
+						texts: {
+							zh: {
+								mairo: '极速合约',
+								contract: '永续合约',
+								add: '添加自选',
+								all: '全部',
+								main: '主流',
+								lever: '合约',
+								pattern: '交易模式',
+								num: '数量',
+								time: '时间',
+								rate: '盈利率',
+								opennum: '开仓数量',
+								opentime: '开仓时间',
+								insurance: '是否购买保险',
+								no: '否',
+								yes: '是',
+								balance: '账户余额',
+								up: '买涨',
+								down: '买跌',
+								list: '持仓列表',
+								record: '订单记录',
+								buyprice: '购买价',
+								nowprice: '当前价',
+								okprice: '成交价',
+								estimate: '预计盈亏',
+								count: '倒计时',
+								handrate: '手续费',
+								profit: '盈亏',
+								norecord: '暂无记录',
+								more: '加载更多',
+								nomore: '没有更多了',
+								type:'类型',
+								buy:'买入',
+								sell:'卖出',
+								expect:'预期收益',
+								cycle:'结算周期',
+								cancel:'取消',
+								success:'下单成功',
+								ptime:'请选择开仓时间',
+								pnum:'请选择开仓数量',
+
+							},
+							en: {
+								mairo: 'Second contract',								
+								contract: 'perpetual contract',								
+								add: 'add optional',								
+								all: 'all',								
+								main: 'main',								
+								lever: 'contract',								
+								pattern: 'transaction mode',								
+								num: 'quantity',							
+								time: 'time',								
+								rate: 'profit rate',								
+								opennum: 'open quantity',								
+								opentime: 'opening time',								
+								insurance: 'whether to buy insurance',								
+								no: 'no',								
+								yes: 'yes',								
+								balance: 'account balance',								
+								up: 'buy up',								
+								down: 'buy down',								
+								list: 'position list',								
+								record: 'order record',								
+								buyprice: 'purchase price',								
+								nowprice: 'current price',								
+								okprice: 'closing price',								
+								estimate: 'estimated profit and loss',								
+								count: 'count down',								
+								handrate: 'service charge',								
+								profit: 'profit and loss',								
+								norecord: 'no record yet',								
+								more: 'load more',								
+								nomore: 'no more',
+								type:'type',
+								buy:'buy',
+								sell:'sell',
+								expect:'Expected earnings',
+								cycle:'Settlement cycle',
+								cancel:'cancel',
+								success: 'order successfully',
+								ptime: 'please select the opening time',
+								pnum: 'please select the opening quantity',
+							},
+							hk: {
+								mairo: '秒合約',
+								contract: '永續合約',
+								add: '添加自選',
+								all: '全部',
+								main: '主流',
+								lever: '合約',
+								pattern: '交易模式',
+								num: '數量',
+								time: '時間',
+								rate: '盈利率',
+								opennum: '開倉數量',
+								opentime: '開倉時間',
+								insurance: '是否購買保險',
+								no: '否',
+								yes: '是',
+								balance: '帳戶餘額',
+								up: '買漲',
+								down: '買跌',
+								list: '持倉清單',
+								record: '訂單記錄',
+								buyprice: '購買價',
+								nowprice: '當前價',
+								okprice: '成交價',
+								estimate: '預計盈虧',
+								count: '倒數計時',
+								handrate: '手續費',
+								profit: '盈虧',
+								norecord: '暫無記錄',
+								more: '加載更多',
+								nomore: '沒有更多了',
+								type:'類型',
+								buy:'買入',
+								sell:'賣出',
+								expect:'預期收益',
+								cycle:'結算週期',
+								cancel:'取消',
+								success:'下單成功',
+								ptime:'請選擇開倉時間',
+								pnum:'請選擇開倉數量',
+							},
+							jp: {
+								mairo: '秒契約',
+								contract: '永遠契約',
+								add: '選択を追加',
+								all: '全部',
+								main: '主流',
+								lever: '契約',
+								pattern: '取引モード',
+								num: '数量',
+								time: '時間',
+								rate: '利益率',
+								opennum: '開倉数量',
+								opentime: '開倉時間',
+								insurance: 'は保険を買うかどうか',
+								no: 'いいえ',
+								yes: 'はい',
+								balance: '口座残高',
+								up: '買い上げる',
+								down: '買いおとす',
+								list: '保有リスト',
+								record: '注文記録',
+								buyprice: '買い入れ価格',
+								nowprice: '現在の価格',
+								okprice: '出来値',
+								estimate: '損益を予想する',
+								count: 'カウントダウン',
+								handrate: '手数料',
+								profit: '利益と損失',
+								norecord: '記録がない',
+								more: 'もっとロード',
+								nomore: 'これ以上ないです',
+								type:'タイプ',
+								buy:'買い入れる',
+								sell:'売りに出る',
+								expect:'予想収益',
+								cycle:'決算周期',
+								cancel:'キャンセル',
+								success:'注文成功',
+								ptime:'開倉時間を選んでください',
+								pnum:'開倉数量を選んでください'
+							}
+						},
+						widget: null,
+						symbolInfo: null,
+						feed: null,
+						wsEx: null,
+						ws: null,
+						lists: [],
+						newData: '',
+						symbol: '',
+						priceScale: 100000,
+						histime: '',
+						newprice: '0.00',
+						updown: '0.00',
+						maxprice: '0.00',
+						minprice: '0.00',
+						dayvom: '0.00',
+						currencyList: [],
+						couponSelected: '',
+						legal_id: '',
+						currency_id: '',
+						legal_name: '',
+						currency_name: '',
+						currency_match_id:'',
+						hasCollcet: '',
+						myid: '',
+						balance: '',
+						rates: '',
+						websockUrl: 'ws://ex.huimeile.net/ws', //'ws://ex.huimeile.net/ws'
+						url: 'https://ex.huimeile.net/',
+						complete: [],
+						transwords: {
+							zh: {
+								high: '高',
+								low: '低',
+								volume: '24H量',
+								num: '数量',
+								price: '价格',
+								time: '时间',
+								buy: '买入',
+								sell: '卖出',
+							},
+							en: {
+								high: 'high',
+								low: 'low',
+								volume: '24H volume',
+								num: 'number',
+								price: 'price',
+								time: 'time',
+								buy: 'buy',
+								sell: 'sell',
+							},
+							hk: {
+								high: '高',
+								low: '低',
+								volume: '24H量',
+								num: '數量',
+								price: '價格',
+								time: '時間',
+								buy: '買入',
+								sell: '賣出',
+							},
+							jp: {
+								high: '高さ',
+								low: '低い',
+								volume: '24 h量',
+								num: '数',
+								price: '価格',
+								time: '時間',
+								buy: '購入',
+								sell: '売却',
+							}
+						},
+						translatedInfo: {
+							high:'',
+							low:'',
+							volume:'',
+							buy:'',
+							sell:''
+						},
+						lang: '',
+						sellType: 'buy',
+						multipleList: [],
+						CountDown: '',
+						balance: '',
+						rate: '',
+						numbers: '0.00',
+						expectedReturn: '0.00',
+						guaranteeAmount: '0.00',
+						tradeType: '',
+						tradeCurrency: [],
+						tradeCurrencyId: '',
+						tradeCurrencyName: '',
+						tradeCurrencyData: [],
+						tradeNUm: [],
+						timeList: [],
+						seconds: '',
+						inputValue: '',
+						profitRatio: '',
+						tradeCurrencyIdTest: '',
+						secondsTest: '',
+						inputValueTest: '',
+						profitRatioTest: '',
+						balanceTest: '',
+						rateTest: '',
+						orderData: {
+		
+						},
+						progress: 100,
+						set: null,
+						status: 1,
+						currencyName: "",
+						orderList: [],
+						set: null,
+						bmbBalance: '',
+						sets: null,
+						insurancType:[],
+						userInsurancId:'',
+						page:1,
+						hasmore:false,
+						isConnect:false,//判断socket是否连接上
+					},
+					filters:{
+						fixed4:function(vals){
+							var values = iTofixed(vals,4);
+							return values;
+						},
+						toFixeds: function (value) {
+							value = Number(value);
+							return value.toFixed(2);
+						},
+						toFixeds1: function (value) {
+							value = Number(value);
+							return value.toFixed(8);
+						},
+						toFixed4: function (value, options) {
+							value = Number(value);
+							return value.toFixed(4);
+						},
+						toFixedNum: function (value, options) {
+							value = Number(value);
+							return value.toFixed(0);
+						},
+						toFixed1: function (value, options) {
+							value = Number(value);
+							return value.toFixed(1);
+						},
+					},
+					created() {
+						var that = this;
+						if(window.plus){
+							that.lang = plus.storage.getItem('lang') || 'zh';
+						}else{
+							// that.lang = JSON.parse(localStorage.getItem('lang')).data;
+							that.lang = localStorage.getItem('lang') || 'zh';
+						}
+						var paramsed = get_all_params();
+						console.log(paramsed.token)
+						// if(paramsed.symbol){
+						// 	that.symbol = paramsed.symbol;
+						// 	let c_name = paramsed.symbol.split('/')
+						// 	that.legal_name = c_name[1];
+						// 	that.currency_name = c_name[0];
+						// 	that.legal_id = paramsed.legal_id;
+						// 	that.currency_id = paramsed.currency_id;
+						// 	that.currency_match_id = paramsed.currency_match_id;
+						// 	document.title = that.symbol;
+						// }
+						that.translatedInfo = that.transwords[that.lang];
+						if(window.plus){							
+							if (!plus.storage.getItem('token')) {
+								uni.navigateTo({
+									url: '/pages/mine/login',
+								});
+							}
+						}else{
+							if (localStorage.getItem('token') == null || localStorage.getItem('token') == '') {
+								uni.navigateTo({
+									url: '/pages/mine/login',
+								});
+							}
+						}
+					},
+					computed: {
+						listenState() { //监听交易对
+							return this.symbol;
+						}
+					},
+					watch: {
+						listenState: function(a, b) { //监听交易对
+							if (a != b && b != '') {
+								this.widget.setSymbol(a, localStorage.getItem('tim'), function onReadyCallback() {}) //切换币种
+							}
+						}
+					},
+					mounted() {
+						this.init();
+						this.getSecond();
+						this.getWallet();
+						// this.createWidget();
+					},
+					destroyed() {
+						this.removeWidget();
+					},
+					beforeDestroy() {
+
+					},
+					methods: {
+						getrate(){
+						    let that = this;
+							initDataToken({
+								url: 'market/deal',
+								data:{
+									currency_match_id:that.currency_match_id
+								}
+							}, function (res) {
+								let data = res.quotation;
+								that.updown = data.change
+								that.dayvom	= Number(data.amount).toFixed(4)
+								that.maxprice = data.high
+								that.minprice = data.low	
+								that.newprice = data.close
+							})
+						},
+						init(){
+							let that = this;
+							initDataToken({url: 'market/currency_matches'}, function (res) {
+								// console.log(JSON.stringify(res))
+								var data1 = res;
+								if(!that.legal_id){
+									that.legal_id = res[0].id;
+								}
+								for (var i = 0; i < data1.length; i++) {
+									if (data1[i].id == that.legal_id) {
+										var data3 = data1[i].matches;
+										let data2 = data3.filter(function(item){
+											return item.open_microtrade == 1;
+										})
+										// console.log(JSON.stringify(data2))
+										that.currencyList = data2;
+										let data0 = data2[0];
+										that.legal_id = data0.quote_currency_id;
+										that.currency_id = data0.base_currency_id;
+										that.legal_name = data0.quote_currency_code;
+										that.currency_name = data0.base_currency_code;
+										that.currency_match_id = data0.id;
+										that.symbol = data0.base_currency_code+'/'+data0.quote_currency_code;
+										// console.log(that.legal_id,that.currency_id,that.legal_name,that.currency_name,that.currency_match_id);
+										that.getrate();
+										that.createWidget();
+										that.orderList = [];
+										that.page = 1;
+										that.getList();
+										// for (var j = 0; j < data2.length; j++) {
+										// 	if (that.currency_id == data2[j].base_currency_id) {
+										// 		that.symbol = data2[j].base_currency_code + '/' + data2[j].quote_currency_code;
+										// 		that.legal_name = data2[j].quote_currency_code;
+										// 	}
+										// }
+									}
+								}
+							})
+						},
+						//获取极速合约信息
+						getWallet(){
+							let that = this;
+							initDataToken({
+								url: 'microtrade/payable_currencies'
+							}, function (res) {
+								that.tradeCurrency = res;
+								if (res.length > 0) {
+									that.tradeCurrencyId = res[0].id;
+									that.tradeCurrencyName = res[0].code;
+									that.tradeCurrencyIdTest = res[0].id
+									that.tradeNUm = res[0].micro_numbers;
+									that.balance = res[0].micro_account.balance;
+									that.balanceTest = res[0].micro_account.balance;
+									that.rate = res[0].micro_trade_fee;
+									that.rateTest = res[0].micro_trade_fee;
+									if (that.tradeNUm.length > 0) {
+										that.inputValue = (that.tradeNUm[0].number - 0).toFixed(0);
+										that.inputValueTest = that.tradeNUm[0].number;
+									}
+								}
+							})
+						},
+						
+						//获取开仓时间
+						getSecond(){
+							let that = this;
+							initDataToken({
+								url: 'microtrade/seconds'
+							}, function (res) {
+								that.timeList = res;
+								if (res.length > 0) {
+									console.log(JSON.stringify(res[0])+'----------------------------')
+									that.seconds = res[0].seconds;
+									that.profitRatio =Number(res[0].profit_ratio)*100;
+									that.secondsTest = res[0].seconds;
+									that.profitRatioTest = Number(res[0].profit_ratio)*100
+								}
+							})
+						},
+						//选择交易对
+						selectCurrencys(ids, legalId, currencyId, legalName, currencyName) {
+							var that = this;
+							that.currency_match_id = ids;
+							that.legal_id = legalId;
+							that.currency_id = currencyId;
+							that.symbol = currencyName + '/' + legalName;
+							that.currency_name = currencyName;
+							that.legal_name = legalName;
+							$('#mask1').hide();
+							$('#sideColumn').animate({
+								left: '-70%'
+							}, 100);
+							// that.init();
+							this.getrate();
+							that.createWidget();
+							// that.connects();
+							that.getList();
+						},
+						tradeCurrencyClick(num, names) {
+							var that = this;
+							that.tradeCurrencyId = num;
+							that.tradeCurrencyName = names;
+							for (var i = 0; i < that.tradeCurrency.length; i++) {
+								if (that.tradeCurrency[i].id == num) {
+									that.tradeNUm = that.tradeCurrency[i].micro_numbers;
+									if (that.tradeCurrency[i].micro_account) {
+										that.balance = that.tradeCurrency[i].micro_account.balance;
+									}
+									that.rate = that.tradeCurrency[i].micro_trade_fee;
+									if (that.tradeNUm.length > 0) {
+										that.inputValue = (that.tradeNUm[0].number - 0).toFixed(0);
+									}
+								}
+							}
+						},
+						tabNumbers(num) {
+							var that = this;
+							that.inputValue = (num - 0).toFixed(0);
+						},
+						// 买入/卖出按钮点击
+						buyModal(types) {
+							var that = this;
+							that.progress = 100;
+							layer.closeAll();
+							// clearInterval(that.set);
+							that.tradeType = types;
+							var text = that.texts[that.lang].cancel;
+							var text1 = '';
+							var skin = 'confirm-modal btn-text ';
+							if (types == 1) {
+								text1 = that.texts[that.lang].up + that.currencyName;
+								skin = 'confirm-modal btn-text buys';
+							} else {
+								text1 = that.texts[that.lang].down + that.currencyName;
+								skin = 'confirm-modal btn-text sells';
+							}
+							layer.open({
+								type: 1,
+								title: text1,
+								area: ['90%', 'auto'],
+								skin: skin,
+								content: $('.orders'),
+								shadeClose: true,
+								btn: [text, text1],
+								btn2: function (index) {
+									that.taderSubmit()
+								},
+								success: function () {
+		
+								}
+							})
+						},
+						slectedTime() {
+							var that = this;
+							var txt1 = that.texts[that.lang].up;
+							var txt2 = that.texts[that.lang].down;
+							that.progress = 100;
+							layer.closeAll();
+							// clearInterval(that.set);
+							layer.open({
+								type: 1,
+								title: false,
+								area: ['100%', 'auto'],
+								skin: 'confirm-modal btn-text second-modal',
+								content: $('.time-modal'),
+								shadeClose: true,
+								fixed: true,
+								offset: 'b',
+								closeBtn: 0,
+								// scrollbar: false,
+								tipsMore: true,
+								btn: [txt1, txt2],
+								btn2: function (index) {
+									that.buyModal(2);
+								},
+								yes: function () {
+									that.buyModal(1)
+								}
+							})
+						},
+						// 下单
+						taderSubmit() {
+							var that = this;
+							if (!that.seconds) {
+								layer_msg(that.texts[that.lang].ptime);
+								return false;
+							}
+							if (!that.inputValue) {
+								layer_msg(that.texts[that.lang].pnum);
+								return false;
+							} 
+							// else if (that.inputValue % 10 != 0) {
+							// 	layer_msg(getlg('multipleTen'));
+							// 	return false;
+							// }
+							initDataToken({
+								url: 'microtrade/submit',
+								data: {
+									match_id: that.currency_match_id,
+									currency_id: that.tradeCurrencyId,
+									type: that.tradeType,
+									seconds: that.seconds,
+									number: that.inputValue
+								},
+								type: 'post'
+							}, function (res) {
+								layer_msg(that.texts[that.lang].success);
+								initDataToken({
+									url: 'microtrade/payable_currencies'
+								}, function (res) {
+									if (res.length > 0) {
+										for (var i = 0; i < res.length; i++) {
+											if (res[i].id == that.tradeCurrencyId) {
+												that.balance = res[i].micro_account.balance;
+											}
+										}
+									}
+								})
+								// location.reload();
+								that.page = 1;
+								that.orderList = [];
+								that.getList();
+							})
+						},
+						selectTime(num, num1) {
+							console.log(num1)
+							var that = this;
+							that.seconds = num;
+							that.profitRatio = Number(num1)*100;
+						},
+						// 显示左侧
+						showLeft() {
+							var that = this;
+							$('#mask1').show();
+							$('#sideColumn').animate({
+								left: '0'
+							}, 100);
+						},
+						// 关闭左侧
+						closeLeft() {
+							var that = this;
+							$('#mask1').hide();
+							$('#sideColumn').animate({
+								left: '-70%'
+							}, 100);
+						},
+						// 获取极速合约订单列表
+						getList() {
+							var that = this;
+							// that.orderList = [];
+							var arr = [];
+							clearTimeout(that.set);
+							clearInterval(that.sets);
+							initDataToken({
+								url: 'microtrade/lists',
+								data: {
+									page: that.page,
+									status: that.status,
+									limit:10,
+									match_id: that.currency_match_id
+								}
+							}, function (res) {
+								that.hasmore = res.current_page<res.last_page  ? true : false;
+								console.log(that.hasmore);
+								arr = res.data;
+								if(that.page==1){
+									that.orderList=[];
+								}else{
+									arr = that.orderList.concat(arr);
+								}
+								if(res.data.length>0){
+									for (var i = 0; i < arr.length; i++) {
+										arr[i].remain_milli_seconds = parseInt((Number(arr[i].remain_milli_seconds))/1000);
+									}
+									that.set = setInterval(() => {
+									  for (var i = 0; i < arr.length; i++) {
+										if(arr[i].remain_milli_seconds<=0){
+										  arr[i].remain_milli_seconds = 0;
+										 //  if(that.status==1){
+											// arr.splice(i, 1)
+										 //  }
+										}else{
+										  arr[i].remain_milli_seconds--;
+										}
+									  }
+									}, 1000);
+								}
+								that.orderList = arr;
+								// if (arr.length > 0) {
+								// 	var nowTime = new Date().getTime();
+								// 	for (var i = 0; i < arr.length; i++) {
+								// 		arr[i].endTime = (nowTime - 0) + (arr[i].remain_milli_seconds - 0);
+								// 	}
+								// 	that.orderList = arr;
+								// 	that.Djs_time();
+								// 	that.set = setTimeout(that.countDown, 200);
+								// }
+							})
+						},
+						getmore(){
+							this.page++;
+							this.getList();
+						},
+						// 订单倒计时
+						countDown(val, indexs, seconds, relSeconds) {
+							var that = this;
+							var timeValue = '';
+							var process = 100 / Number(seconds);
+							var endItem = val; //获取列表传的截止时间
+							var nowItem = new Date().getTime(); //获取当前时间
+							var timeSpace = endItem - nowItem; //截止时间减去当前时间
+							var seconds = '';
+							if (timeSpace > 0) {
+								seconds = (timeSpace / 1000).toFixed(1);
+								return seconds;
+							} else if (timeSpace <= 0) {
+								return 0.0;
+								// 倒计时结束打开
+								// clearTimeout(that.set);
+								// var arr = that.orderList;
+								// arr.splice(indexs,1)
+								// that.orderList = arr;
+								// console.log(that.orderList.splice(indexs,1))
+								// that.orderList = that.orderList.splice(indexs,1);
+								// that.getList();
+								// 或者刷新页面
+								// location.reload();
+							}
+		
+		
+						},
+						Djs_time: function () {
+							this.sets = setInterval(() => {
+								var presentTime = new Date().getTime();
+								this.CountDown = presentTime
+							}, 200);
+						},
+						// 选择极速合约订单类型
+						selectOrder(types) {
+							var that = this;
+							that.status = types;
+							that.page = 1;
+							that.orderList = [];
+							that.getList();
+						},
+						goback() {
+							// uni.navigateBack();
+							// uni.switchTab({
+							// 	url: '/pages/home/home'
+							// })
+							if(window.plus){
+								uni.navigateBack({
+									delta: 1
+								});
+							}else{
+								history.back(-1);
+							}
+						},
+						// goTrade(mytype) {
+						// 	let localData = {
+						// 		legal_name: this.legal_name,
+						// 		legal_id: this.legal_id,
+						// 		currency_name: this.currency_name,
+						// 		currency_id: this.currency_id,
+						// 		match_id:this.currency_match_id
+						// 	}
+							
+						// 	if(window.plus){
+						// 		plus.storage.setItem('tradeData', JSON.stringify(localData));
+						// 		plus.storage.setItem('tradeType', mytype);
+						// 	}else{
+						// 		localStorage.setItem('tradeData', JSON.stringify(localData));
+						// 		localStorage.setItem('tradeType', mytype);
+						// 	}
+						// 	uni.switchTab({
+						// 		url: '/pages/trade/trade'
+						// 	})
+						// },
+						timestampToTime(timestamp) {
+							var time=''
+							if(timestamp.toString().length>11){
+								time=timestamp
+							}else{
+								time=timestamp*1000
+							}
+							var now = new Date(time),
+					 　　	y = now.getFullYear(),
+					 　　	m = now.getMonth() + 1,
+					　　	d = now.getDate();
+					 　　	return y + "-" + (m < 10 ? "0" + m : m) + "-" + (d < 10 ? "0" + d : d) + " " + now.toTimeString().substr(0, 8);
+						},
+
+						// 默认
+						connect(real) { //封装推送数据
+							var that = this;
+							let tokens;
+							if(window.plus){
+								if (plus.storage.getItem('token')) {
+									tokens = plus.storage.getItem('token');
+								}
+							}else{
+								// tokens = JSON.parse(localStorage.getItem('token')).data;
+								tokens = localStorage.getItem('token');
+							}
+							console.log(tokens+22222222222222)
+							var websock = new WebSocket(that.websockUrl);
+							websock.onopen = function() {
+								websock.send(JSON.stringify({
+									"type": "sub",
+									params: "KLINE." + that.symbol
+								}))
+								websock.send(JSON.stringify({type: "sub", params: "DAY_MARKET"}))
+								websock.send(JSON.stringify({ type: "login", params: tokens }))
+								websock.send(JSON.stringify({type: "sub", params: "MICRO_CLOSED"}))
+							}
+							websock.onmessage = function(msg) {
+								if(!that.isConnect){
+									that.isConnect = true;
+								}
+								console.log(that.isConnect)
+								var msg=JSON.parse(msg.data);
+								let type = localStorage.getItem('type')
+								var resmsg = msg;
+								if (resmsg.type == 'KLINE') {
+									let obj = {}
+									if (that.symbol == resmsg.symbol) {
+										let data = resmsg.kline;
+										if (data.period == type) {
+											obj.open = Number(data.open)
+											obj.low = Number(data.low)
+											obj.high = Number(data.high)
+											obj.close = Number(data.close)
+											obj.volume = Number(data.amount)
+											obj.time = Number(data.time)
+											real(obj)
+										}
+									}
+								}
+								if(resmsg.type=='DAY_MARKET'){
+									var datas = that.currencyList;
+									datas.forEach((item, index) => {
+										if (item.currency_quotation.currency_match_id == resmsg.currency_match_id) {
+										    that.currencyList[index].currency_quotation.close = resmsg.quotation.close;
+										}
+									});
+									if (that.symbol == resmsg.symbol) {
+										let datas  = resmsg.quotation;
+										// if (data.period == '1day') {
+											that.newprice = datas.close;
+											that.maxprice = datas.high;
+											that.minprice = datas.low;
+											that.dayvom = Number(datas.amount).toFixed(4);
+											that.updown = datas.change;
+										// }
+									}
+								}
+								if(resmsg.type=='MICRO_CLOSED'){
+									// console.log('MICRO_CLOSED')
+									var datas =resmsg.order;
+									if(that.status==1){
+										for (var i = 0; i < that.orderList.length; i++) {
+											if (that.orderList[i].id == datas.id) {
+												that.orderList[i] = datas;
+												setTimeout(function () {
+													var arr = that.orderList;
+													arr.splice(i, 1)
+													that.orderList = arr;
+												}, 500)
+												return false;
+											}
+										}
+									}
+								}
+							}
+						},
+						createWidget() {
+							let _this = this;
+							let lang;
+							if(window.plus){
+								lang = plus.storage.getItem('lang') || 'zh';
+							}else{
+								lang = localStorage.getItem('lang') || 'zh';
+							}
+							if(lang=='hk'){
+								lang = 'zh_TW'
+							}else if(lang=='jp'){
+								lang = 'ja'
+							}
+							this.$nextTick(function() {
+								let widget = _this.widget = new TradingView.widget({
+									symbol: _this.symbol,
+									interval: 1,
+									debug: true,
+									fullscreen: false,
+									autosize: true,
+									container_id: "tv_chart_container",
+									// datafeed: new Datafeeds.UDFCompatibleDatafeed("http://demo_feed.tradingview.com"),
+									datafeed: _this.createFeed(),
+									library_path: "tradeview/charting_library/",
+									custom_css_url: 'bundles/new.css',
+									locale: lang,
+									width: "100%",
+									height: 516,
+									drawings_access: {
+										type: 'black',
+										tools: [{
+											name: "Regression Trend"
+										}]
+									},
+									disabled_features: [ //  禁用的功能
+										'left_toolbar', 'widget_logo', 'header_saveload', 'compare_symbol', 'display_market_status',
+										'go_to_date', 'header_chart_type', 'header_compare', 'header_interval_dialog_button',
+										'header_resolutions', 'header_screenshot', 'header_symbol_search', 'header_undo_redo',
+										'legend_context_menu', 'show_hide_button_in_legend', 'show_interval_dialog_on_key_press',
+										'snapshot_trading_drawings', 'symbol_info', 'timeframes_toolbar', 'use_localstorage_for_settings',
+										'volume_force_overlay'
+									],
+									enabled_features: [ //  启用的功能（备注：disable_resolution_rebuild 功能用于控制当时间范围为1个月时，日期刻度是否都是每个月1号
+										'dont_show_boolean_study_arguments', 'hide_last_na_study_output', 'move_logo_to_main_pane',
+										'same_data_requery', 'side_toolbar_in_fullscreen_mode', 'disable_resolution_rebuild'
+									],
+									charts_storage_url: 'http://saveload.tradingview.com',
+									charts_storage_api_version: "1.1",
+									toolbar_bg: "transparent",
+									timezone: "Asia/Shanghai",
+									studies_overrides: {
+										'volume.precision': '1000'
+									},
+									overrides: _this.overrides()
+								});
+
+								widget.MAStudies = [];
+								widget.selectedIntervalButton = null;
+								// widget.setLanguage('en')
+								widget.onChartReady(function() { //图表方法
+									// document.getElementById('trade-view').childNodes[0].setAttribute('style', 'display:block;width:100%;height:100%;');
+									//let that =this
+
+									widget.chart().createStudy('Moving Average', false, true, [15, 'close', 0], null, {
+										'Plot.color': '#e843da'
+									});
+									widget.chart().createStudy("MA Cross", false, false, [10, 20]);
+
+									let buttonArr = [{
+											value: "1min",
+											period: "1",
+											text: "Time",
+											chartType: 3,
+											type: "1min"
+										},
+										{
+											value: "1",
+											period: "1m",
+											text: "1min",
+											chartType: 1,
+											type: "1min"
+										},
+										{
+											value: "5",
+											period: "5m",
+											text: "5min",
+											chartType: 1,
+											type: "5min"
+										},
+										{
+											value: "30",
+											period: "30m",
+											text: "30min",
+											chartType: 1,
+											type: "30min"
+										},
+										{
+											value: "60",
+											period: "60分钟",
+											text: "1hour",
+											chartType: 1,
+											type: "60min"
+										},
+										{
+											value: "1D",
+											period: "1D",
+											text: "1day",
+											chartType: 1,
+											type: "1day"
+										},
+										{
+											value: "1W",
+											period: "1W",
+											text: "1week",
+											chartType: 1,
+											type: "1week"
+										}
+										// ,
+										// {
+										// 	value: "1M",
+										// 	period: "1M",
+										// 	text: "1mon",
+										// 	chartType: 1,
+										// 	type: "1mon"
+										// }
+									];
+									let btn = {};
+									let nowTime = '';
+									buttonArr.forEach((v, i) => {
+										let button = widget.createButton()
+										button.attr('title', v.text)
+											.addClass("my2")
+											.text(v.text)
+
+										if (v.text == '1min') {
+											button.css({
+												'color': '#218bde',
+												'border-bottom': '1px solid #218bde'
+											})
+											localStorage.setItem('tim', '1min') //默认为1分钟
+											localStorage.setItem('type', '1min') //默认为1分钟
+										}
+										btn = button.on("click", function(e) {
+											$(this).parents(".left").children().find(".my2").removeAttr("style"); //去掉1分钟的
+											handleClick(e, v.value, v.type);
+
+											widget.chart().setChartType(v.chartType); //改变K线类型
+										});
+
+
+									});
+									if (localStorage.getItem('tim') == '1min') {
+										widget.chart().setChartType(1);
+									}
+									let handleClick = (e, value, type) => {
+										_this.setSymbol = function(symbol, value) {
+											gh.chart().setSymbol(symbol, value);
+										};
+										localStorage.setItem('tim', value);
+										localStorage.setItem('type', type) //默认为1分钟
+										widget.chart().setResolution(value, function onReadyCallback() {}); //改变分辨率
+
+										$(e.target)
+											.addClass("mydate")
+											.closest("div.space-single")
+											.siblings("div.space-single")
+											.find("div.button")
+											.removeClass("mydate")
+									};
+								});
+								_this.widget = widget;
+							})
+						},
+						createFeed() {
+							let this_vue = this;
+							let Datafeed = {};
+							Datafeed.DataPulseUpdater = function(datafeed, updateFrequency) {
+								this._datafeed = datafeed;
+								this._subscribers = {};
+
+								this._requestsPending = 0;
+								var that = this;
+
+								var update = function() {
+									if (that._requestsPending > 0) {
+										return;
+									}
+
+									for (var listenerGUID in that._subscribers) {
+										var subscriptionRecord = that._subscribers[listenerGUID];
+										var resolution = subscriptionRecord.resolution;
+
+										var datesRangeRight = parseInt((new Date().valueOf()) / 1000);
+
+
+										//	BEWARE: please note we really need 2 bars, not the only last one
+										//	see the explanation below. `10` is the `large enough` value to work around holidays
+										var datesRangeLeft = datesRangeRight - that.periodLengthSeconds(resolution, 10);
+
+										that._requestsPending++;
+
+										(function(_subscriptionRecord) { // eslint-disable-line
+											that._datafeed.getBars(_subscriptionRecord.symbolInfo, resolution, datesRangeLeft, datesRangeRight,
+												function(bars) {
+													that._requestsPending--;
+
+													//	means the subscription was cancelled while waiting for data
+													if (!that._subscribers.hasOwnProperty(listenerGUID)) {
+														return;
+													}
+
+													if (bars.length === 0) {
+														return;
+													}
+
+													var lastBar = bars[bars.length - 1];
+													if (!isNaN(_subscriptionRecord.lastBarTime) && lastBar.time < _subscriptionRecord.lastBarTime) {
+														return;
+													}
+
+													var subscribers = _subscriptionRecord.listeners;
+
+													//	BEWARE: this one isn't working when first update comes and this update makes a new bar. In this case
+													//	_subscriptionRecord.lastBarTime = NaN
+													var isNewBar = !isNaN(_subscriptionRecord.lastBarTime) && lastBar.time > _subscriptionRecord.lastBarTime;
+
+													//	Pulse updating may miss some trades data (ie, if pulse period = 10 secods and new bar is started 5 seconds later after the last update, the
+													//	old bar's last 5 seconds trades will be lost). Thus, at fist we should broadcast old bar updates when it's ready.
+													if (isNewBar) {
+														if (bars.length < 2) {
+															throw new Error('Not enough bars in history for proper pulse update. Need at least 2.');
+														}
+
+														var previousBar = bars[bars.length - 2];
+														for (var i = 0; i < subscribers.length; ++i) {
+															subscribers[i](previousBar);
+														}
+													}
+
+													_subscriptionRecord.lastBarTime = lastBar.time;
+
+													for (var i = 0; i < subscribers.length; ++i) {
+														subscribers[i](lastBar);
+													}
+												},
+
+												//	on error
+												function() {
+													that._requestsPending--;
+												});
+										})(subscriptionRecord);
+									}
+								};
+
+								if (typeof updateFrequency != 'undefined' && updateFrequency > 0) {
+									setInterval(update, updateFrequency);
+								}
+							};
+
+							Datafeed.DataPulseUpdater.prototype.periodLengthSeconds = function(resolution, requiredPeriodsCount) {
+								var daysCount = 0;
+
+								if (resolution === 'D') {
+									daysCount = requiredPeriodsCount;
+								} else if (resolution === 'M') {
+									daysCount = 31 * requiredPeriodsCount;
+								} else if (resolution === 'W') {
+									daysCount = 7 * requiredPeriodsCount;
+								} else {
+									daysCount = requiredPeriodsCount * resolution / (24 * 60);
+								}
+
+								return daysCount * 24 * 60 * 60;
+							};
+
+							Datafeed.DataPulseUpdater.prototype.subscribeDataListener = function(symbolInfo, resolution, newDataCallback,
+								listenerGUID) {
+								this._datafeed._logMessage('Subscribing ' + listenerGUID);
+
+								if (!this._subscribers.hasOwnProperty(listenerGUID)) {
+									this._subscribers[listenerGUID] = {
+										symbolInfo: symbolInfo,
+										resolution: resolution,
+										lastBarTime: NaN,
+										listeners: []
+									};
+								}
+
+								this._subscribers[listenerGUID].listeners.push(newDataCallback);
+							};
+
+							Datafeed.DataPulseUpdater.prototype.unsubscribeDataListener = function(listenerGUID) {
+								this._datafeed._logMessage('Unsubscribing ' + listenerGUID);
+								delete this._subscribers[listenerGUID];
+							};
+
+							Datafeed.Container = function(updateFrequency) {
+								this._configuration = {
+									supports_search: false,
+									supports_group_request: false,
+									supported_resolutions: ['1', '3', '5', '15', '30', '60', '120', '240', '360', '720', '1D', '3D', '1W',
+										'1M'
+									],
+									supports_marks: true,
+									supports_timescale_marks: true,
+									exchanges: ['gh']
+								};
+
+								this._barsPulseUpdater = new Datafeed.DataPulseUpdater(this, updateFrequency || 10 * 1000);
+								// this._quotesPulseUpdater = new Datafeed.QuotesPulseUpdater(this);
+
+								this._enableLogging = true;
+								this._callbacks = {};
+
+								this._initializationFinished = true;
+								this._fireEvent('initialized');
+								this._fireEvent('configuration_ready');
+							};
+
+							Datafeed.Container.prototype._fireEvent = function(event, argument) {
+								if (this._callbacks.hasOwnProperty(event)) {
+									var callbacksChain = this._callbacks[event];
+									for (var i = 0; i < callbacksChain.length; ++i) {
+										callbacksChain[i](argument);
+									}
+
+									this._callbacks[event] = [];
+								}
+							};
+
+							Datafeed.Container.prototype._logMessage = function(message) {
+								if (this._enableLogging) {
+									var now = new Date();
+								}
+							};
+
+							Datafeed.Container.prototype.on = function(event, callback) {
+								if (!this._callbacks.hasOwnProperty(event)) {
+									this._callbacks[event] = [];
+								}
+
+								this._callbacks[event].push(callback);
+								return this;
+							};
+
+							Datafeed.Container.prototype.onReady = function(callback) {
+								let that = this;
+								if (this._configuration) {
+									setTimeout(function() {
+										callback(that._configuration);
+									}, 0);
+								} else {
+									this.on('configuration_ready', function() {
+										callback(that._configuration);
+									});
+								}
+							};
+
+							Datafeed.Container.prototype.resolveSymbol = function(symbolName, onSymbolResolvedCallback,
+								onResolveErrorCallback) {
+								this._logMessage("GOWNO :: resolve symbol " + symbolName);
+								Promise.resolve().then(() => {
+
+
+									// this._logMessage("GOWNO :: onResultReady inject "+'AAPL');
+									onSymbolResolvedCallback({
+										"name": this_vue.symbol,
+										"timezone": "Asia/Shanghai",
+										"pricescale": this_vue.priceScale,
+										"minmov": 1, //minmov(最小波动), pricescale(价格精度), minmove2, fractional(分数)
+										"minmov2": 0, //这是一个神奇的数字来格式化复杂情况下的价格。
+										"ticker": this_vue.symbol,
+										"description": "",
+										"type": "bitcoin",
+										"volume_precision": 8,
+										// "exchange-traded": "sdt",
+										// "exchange-listed": "sdt",
+										//现在，这两个字段都为某个交易所的略称。将被显示在图表的图例中，以表示此商品。目前此字段不用于其他目的。
+										"has_intraday": true,
+										"has_weekly_and_monthly": true,
+										"has_no_volume": false, //布尔表示商品是否拥有成交量数据。
+										'session': '24x7',
+										'supported_resolutions': ['1', '3', '5', '15', '30', '60', '120', '240', '360', '720', '1D', '3D',
+											'1W',
+											'1M'
+										]
+
+									});
+								})
+							};
+
+
+							//初始化数据
+							Datafeed.Container.prototype.getBars = function(symbolInfo, resolution, rangeStartDate, rangeEndDate,
+								onHistoryCallback, onErrorCallback) {
+								// if (rangeStartDate > 0 && (rangeStartDate + '').length > 10) {
+								//   throw new Error(['Got a JS time instead of Unix one.', rangeStartDate, rangeEndDate]);
+								// }
+
+								if (resolution.indexOf('D') == -1 && resolution.indexOf('W') == -1 && resolution.indexOf('M') == -1) {
+									resolution = resolution + 'min'
+								} else if (resolution.indexOf('W') != -1 || resolution.indexOf('M') != -1) {
+									resolution = resolution
+								}
+								// console.log(rangeStartDate);
+								// console.log(rangeEndDate)
+								// console.log(resolution);
+								// console.log(JSON.stringify(symbolInfo) ) 
+								$.ajax({
+									url: this_vue.url + 'api/market/kline?' + 'from=' + rangeStartDate + '&to=' + rangeEndDate +
+										'&symbol=' + symbolInfo.name + '&period=' + resolution+'&currency_match_id='+this_vue.currency_match_id,
+									type: 'get',
+									success: function(res) {
+										// console.log(res.data)
+										// console.log(JSON.stringify(res))
+										if (res.code == 1 && res.data && res.data.length > 0) {
+											res.data.forEach((item, i) => {
+												item.open = Number(item.open)
+												item.close = Number(item.close)
+												item.high = Number(item.high)
+												item.low = Number(item.low)
+												// if(len==i){
+												// 	console.log(i)
+												// 	this_vue.newprice = item.close - 0
+												// 	this_vue.maxprice = item.high - 0
+												// 	this_vue.minprice = item.low - 0
+												// 	this_vue.dayvom = Number(item.vol).toFixed(2);
+												// 	this_vue.updown = ((item.close - item.open) / (item.open - 0) * 100).toFixed(4).toString();
+												// }
+											})
+											onHistoryCallback(res.data, {
+												noData: false
+											})
+											onHistoryCallback([], {
+												noData: true
+											})
+
+										}
+										if (!res.data || res.code == -1) {
+											onHistoryCallback([], {
+												noData: true
+											})
+										}
+										if (res.data && res.data.length == 0) {
+											onHistoryCallback([], {
+												noData: true
+											})
+										}
+
+									}
+								})
+
+							};
+							//实时数据
+							Datafeed.Container.prototype.subscribeBars = function(symbolInfo, resolution, onRealtimeCallback,
+								listenerGUID,
+								onResetCacheNeededCallback) {
+								this_vue.connect(onRealtimeCallback)
+
+								//this._barsPulseUpdater.subscribeDataListener(symbolInfo, resolution, onRealtimeCallback, listenerGUID, onResetCacheNeededCallback);
+							};
+
+							Datafeed.Container.prototype.unsubscribeBars = function(listenerGUID) {
+
+								this._barsPulseUpdater.unsubscribeDataListener(listenerGUID);
+
+							};
+
+							return new Datafeed.Container;
+						},
+
+						updateWidget(item) {
+							this.symbolInfo = {
+								name: item,
+								ticker: item,
+								description: "",
+								session: "24x7",
+								supported_resolutions: ['1', '5', '30', '60', '240', '1D', '3D', '1W', '1M'],
+								has_intraday: true,
+								has_daily: true,
+								has_weekly_and_monthly: true,
+								timezone: "UTC",
+							}
+							this.removeWidget();
+							this.createWidget();
+						},
+						removeWidget() {
+							if (this.widget) {
+								this.widget.remove();
+								this.widget = null;
+							}
+						},
+						overrides() {
+							let style = {
+								up: "#02C289",
+								down: "#e86d43",
+								bg: "#131f30",
+								grid: "#1E2740",
+								cross: "#1E2740",
+								border: "#4e5b85",
+								text: "#61688A",
+								areatop: "rgba(122, 152, 247, .1)",
+								areadown: "rgba(122, 152, 247, .02)"
+							};
+							return {
+								'volumePaneSize': "small", //large, medium, small, tiny
+								'paneProperties.topMargin': '20',
+								"scalesProperties.lineColor": style.bg,
+								"scalesProperties.textColor": style.text,
+								"paneProperties.background": style.bg, //改变背景色的重要代码
+								"paneProperties.vertGridProperties.color": style.grid,
+								"paneProperties.horzGridProperties.color": style.grid,
+								"paneProperties.crossHairProperties.color": style.cross,
+								"paneProperties.legendProperties.showLegend": true,
+								"paneProperties.legendProperties.showStudyArguments": true,
+								"paneProperties.legendProperties.showStudyTitles": true,
+								"paneProperties.legendProperties.showStudyValues": true,
+								"paneProperties.legendProperties.showSeriesTitle": true,
+								"paneProperties.legendProperties.showSeriesOHLC": true,
+								"mainSeriesProperties.candleStyle.upColor": style.up,
+								"mainSeriesProperties.candleStyle.downColor": style.down,
+								"mainSeriesProperties.candleStyle.drawWick": true,
+								"mainSeriesProperties.candleStyle.drawBorder": true,
+								"mainSeriesProperties.candleStyle.borderColor": style.border,
+								"mainSeriesProperties.candleStyle.borderUpColor": style.up,
+								"mainSeriesProperties.candleStyle.borderDownColor": style.down,
+								"mainSeriesProperties.candleStyle.wickUpColor": style.up,
+								"mainSeriesProperties.candleStyle.wickDownColor": style.down,
+								"mainSeriesProperties.candleStyle.barColorsOnPrevClose": false,
+								"mainSeriesProperties.hollowCandleStyle.upColor": style.up,
+								"mainSeriesProperties.hollowCandleStyle.downColor": style.down,
+
+								"mainSeriesProperties.hollowCandleStyle.drawWick": true,
+								"mainSeriesProperties.hollowCandleStyle.drawBorder": true,
+								"mainSeriesProperties.hollowCandleStyle.borderColor": style.border,
+								"mainSeriesProperties.hollowCandleStyle.borderUpColor": style.up,
+								"mainSeriesProperties.hollowCandleStyle.borderDownColor": style.down,
+								"mainSeriesProperties.hollowCandleStyle.wickColor": style.line,
+								"mainSeriesProperties.haStyle.upColor": style.up,
+								"mainSeriesProperties.haStyle.downColor": style.down,
+								"mainSeriesProperties.haStyle.drawWick": true,
+								"mainSeriesProperties.haStyle.drawBorder": true,
+								"mainSeriesProperties.haStyle.borderColor": style.border,
+								"mainSeriesProperties.haStyle.borderUpColor": style.up,
+								"mainSeriesProperties.haStyle.borderDownColor": style.down,
+								"mainSeriesProperties.haStyle.wickColor": style.border,
+								"mainSeriesProperties.haStyle.barColorsOnPrevClose": false,
+								"mainSeriesProperties.barStyle.upColor": style.up,
+								"mainSeriesProperties.barStyle.downColor": style.down,
+								"mainSeriesProperties.barStyle.barColorsOnPrevClose": false,
+								"mainSeriesProperties.barStyle.dontDrawOpen": false,
+								"mainSeriesProperties.lineStyle.color": style.border,
+								"mainSeriesProperties.lineStyle.linewidth": 1,
+								"mainSeriesProperties.lineStyle.priceSource": "close",
+								"mainSeriesProperties.areaStyle.color1": style.areatop,
+								"mainSeriesProperties.areaStyle.color2": style.areadown,
+								"mainSeriesProperties.areaStyle.linecolor": style.borders,
+								"mainSeriesProperties.areaStyle.linewidth": 1,
+								"mainSeriesProperties.areaStyle.priceSource": "close"
+							}
+						},
+						chose() {
+							this.widget.setLanguage('en') //设置语言
+						}
+					},
+				})
+			})
+		</script>
+	</body>
+
+</html>
